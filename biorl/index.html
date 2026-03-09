@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BioRL Demo | OpenEnv + Qwen3-4B</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">BioRL Demo Board</p>
+          <h1>Qwen3-4B post-trained on a custom OpenEnv SMILES task</h1>
+          <div class="hero-badges">
+            <span class="badge">DDR1</span>
+            <span class="badge">OpenEnv</span>
+            <span class="badge">GRPO</span>
+            <span class="badge">SMILES</span>
+          </div>
+        </div>
+        <div class="hero-panel">
+          <div class="status-strip">
+            <span>run</span>
+            <strong>SMILES-OPT-014</strong>
+          </div>
+          <pre class="hero-code"><code>env = BioSMILESEnv("DDR1")
+obs = env.reset()
+for _ in range(5):
+    smiles = model.sample(obs)
+    step = env.step(smiles)
+    reward = step.reward
+    obs = step.observation
+    if step.done:
+        break
+print(reward)</code></pre>
+        </div>
+      </header>
+
+      <main>
+        <section class="section compact-section" id="results">
+          <div class="section-heading compact-heading">
+            <p class="eyebrow">Training Loss</p>
+            <h2>Current training loss snapshot</h2>
+          </div>
+
+          <div class="reward-strip">
+            <article class="reward-chip">
+              <span>0.55</span>
+              <strong>affinity proxy</strong>
+            </article>
+            <article class="reward-chip">
+              <span>0.20</span>
+              <strong>SMILES validity</strong>
+            </article>
+            <article class="reward-chip">
+              <span>0.15</span>
+              <strong>synthesizability</strong>
+            </article>
+            <article class="reward-chip">
+              <span>0.10</span>
+              <strong>novelty</strong>
+            </article>
+          </div>
+
+          <div class="results-grid">
+            <article class="chart-card">
+              <div class="chart-head">
+                <div>
+                  <p class="chart-kicker">python graph</p>
+                  <h3>Raw matplotlib output</h3>
+                </div>
+              </div>
+              <img
+                class="raw-graph"
+                src="./assets/training_loss_raw.png"
+                alt="Raw training loss graph generated from table.md"
+              />
+            </article>
+
+            <article class="chart-card trajectory-card">
+              <div class="chart-head">
+                <div>
+                  <p class="chart-kicker">rollouts</p>
+                  <h3>Sample trajectories</h3>
+                </div>
+              </div>
+              <div class="trajectory-list">
+                <article class="trajectory-item">
+                  <div class="trajectory-head">
+                    <span>trajectory 01 · biorl</span>
+                    <strong>reward 0.46</strong>
+                  </div>
+                  <code>COc1ccc(Nc2ncc(C(=O)N3CCOCC3)s2)cc1</code>
+                </article>
+
+                <article class="trajectory-item">
+                  <div class="trajectory-head">
+                    <span>trajectory 02 · biorl</span>
+                    <strong>reward 0.79</strong>
+                  </div>
+                  <code>COc1cc(Nc2ncc(C(=O)N3CCN(C)CC3)s2)ccc1F</code>
+                </article>
+
+                <article class="trajectory-item">
+                  <div class="trajectory-head">
+                    <span>trajectory 03 · biorl</span>
+                    <strong>reward 0.84</strong>
+                  </div>
+                  <code>CCOc1nc(Nc2ccc(F)c(Cl)c2)ncc1C(=O)N1CCOCC1</code>
+                </article>
+
+                <article class="trajectory-item trajectory-item-muted">
+                  <div class="trajectory-head">
+                    <span>trajectory 04 · qwen3-4b base</span>
+                    <strong>reward 0.00</strong>
+                  </div>
+                  <code>CCN1C=NC2=CC(=O)N(C)C=C21C(</code>
+                </article>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

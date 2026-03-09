@@ -7,8 +7,11 @@ It stages an explorable 3D EGFR resistance pocket and lets you compare inhibitor
 
 ```bash
 npm install
+cp .env.example .env
 npm run dev
 ```
+
+Set `GEMINI_API_KEY` in `.env` to enable the Pocket copilot chat panel. The app proxies Gemini through a local Vite endpoint using the OpenAI-compatible chat completions API.
 
 For a production bundle:
 

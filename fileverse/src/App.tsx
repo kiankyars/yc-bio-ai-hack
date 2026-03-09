@@ -8,11 +8,22 @@ import {
   proteinCatalog,
   type OverlayMode,
 } from './data/pocketData';
+import { askPocketCopilot, type ChatMessage } from './lib/gemini';
 import { PocketVerseScene } from './lib/pocketverse-scene';
+
+const DEFAULT_GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-flash-3-preview';
+
+function makeWelcomeMessage(protein: string): ChatMessage {
+  return {
+    role: 'assistant',
+    content: `Ask me about ${protein} ligands, residues, resistance hotspots, or which scaffold looks most resilient.`,
+  };
+}
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sceneRef = useRef<PocketVerseScene | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [selectedProteinId, setSelectedProteinId] = useState('egfr');
   const [sceneReady, setSceneReady] = useState(false);
@@ -22,6 +33,13 @@ export default function App() {
   const [selectedResidueId, setSelectedResidueId] = useState(model.defaultResidueId);
   const [selectedLigandId, setSelectedLigandId] = useState(model.defaultLigandId);
   const [selectedStopId, setSelectedStopId] = useState(model.defaultStopId);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    makeWelcomeMessage(getProteinModel('egfr').targetProfile.name),
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatModelUsed, setChatModelUsed] = useState(DEFAULT_GEMINI_MODEL);
 
   const resolvedResidueId = model.residues.some((residue) => residue.id === selectedResidueId)
     ? selectedResidueId
@@ -84,6 +102,10 @@ export default function App() {
     setSelectedResidueId(model.defaultResidueId);
     setSelectedLigandId(model.defaultLigandId);
     setSelectedStopId(model.defaultStopId);
+    setChatMessages([makeWelcomeMessage(model.targetProfile.name)]);
+    setChatInput('');
+    setChatError(null);
+    setChatModelUsed(DEFAULT_GEMINI_MODEL);
   }, [model]);
 
   useEffect(() => {
@@ -104,6 +126,84 @@ export default function App() {
       sceneRef.current?.focusStop(resolvedStopId);
     }
   }, [autoplay, resolvedStopId]);
+
+  useEffect(() => {
+    chatScrollRef.current?.scrollTo({
+      top: chatScrollRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
+  }, [chatMessages, chatBusy]);
+
+  async function submitChat(prompt: string): Promise<void> {
+    const trimmed = prompt.trim();
+    if (!trimmed || chatBusy) {
+      return;
+    }
+
+    const nextMessages = [...chatMessages, { role: 'user', content: trimmed } as ChatMessage];
+    setChatMessages(nextMessages);
+    setChatInput('');
+    setChatBusy(true);
+    setChatError(null);
+
+    try {
+      const reply = await askPocketCopilot({
+        model: DEFAULT_GEMINI_MODEL,
+        messages: nextMessages.slice(-8),
+        context: {
+          protein: model.targetProfile.name,
+          targetId: model.targetProfile.targetId,
+          selectedLigand: selectedLigand.name,
+          selectedResidue: selectedResidue.label,
+          selectedView: model.cameraStops.find((stop) => stop.id === resolvedStopId)?.title || resolvedStopId,
+          ligands: model.ligands.map((ligand) => ({
+            name: ligand.name,
+            stage: ligand.stage,
+            tag: ligand.tag,
+            pocketFit: ligand.pocketFit,
+            mutationCoverage: ligand.mutationCoverage,
+            storyline: ligand.storyline,
+            risk: ligand.risk,
+          })),
+          residues: model.residues.map((residue) => ({
+            label: residue.label,
+            aminoAcid: residue.aminoAcid,
+            role: residue.role,
+            mutationPressure: residue.mutationPressure,
+            conservation: residue.conservation,
+            note: residue.note,
+            ligandInsight: residue.ligandInsight,
+          })),
+        },
+      });
+
+      setChatModelUsed(reply.model);
+      setChatMessages((current) => [...current, { role: 'assistant', content: reply.content }]);
+    } catch (error) {
+      setChatError(error instanceof Error ? error.message : 'Gemini request failed.');
+    } finally {
+      setChatBusy(false);
+    }
+  }
+
+  function askAboutLigand(ligandId: string): void {
+    const ligand = model.ligands.find((entry) => entry.id === ligandId);
+    if (!ligand) {
+      return;
+    }
+    setSelectedLigandId(ligandId);
+    void submitChat(`Explain ${ligand.name} in this ${model.targetProfile.name} pocket. Why does it fit or fail?`);
+  }
+
+  function askAboutResidue(residueId: string): void {
+    const residue = model.residues.find((entry) => entry.id === residueId);
+    if (!residue) {
+      return;
+    }
+    setSelectedResidueId(residueId);
+    setAutoplay(false);
+    void submitChat(`What does ${residue.label} do in this ${model.targetProfile.name} pocket, and why does it matter for resistance?`);
+  }
 
   return (
     <div className="app-shell">
@@ -214,56 +314,108 @@ export default function App() {
           <div className="viewport__frame">
             <canvas ref={canvasRef} className="viewport__canvas" />
             <div className="viewport__overlay">
-              <span>{sceneReady ? 'Click residues to interrogate contacts' : 'Initializing scene...'}</span>
+              <span>{sceneReady ? 'Drag to orbit, click to select residues' : 'Initializing scene...'}</span>
               <span>{selectedResidue.label} selected</span>
             </div>
           </div>
+
+          <div className="viewport__footer">
+            {model.ligands.map((ligand) => (
+              <button
+                key={ligand.id}
+                className={ligand.id === resolvedLigandId ? 'ligand-card ligand-card--active' : 'ligand-card'}
+                onClick={() => setSelectedLigandId(ligand.id)}
+                type="button"
+              >
+                <div className="ligand-card__title">
+                  <strong>{ligand.name}</strong>
+                  <span>{ligand.tag}</span>
+                </div>
+                <div className="ligand-card__metrics">
+                  <span>Fit {formatPercent(ligand.pocketFit)}</span>
+                  <span>Coverage {formatPercent(ligand.mutationCoverage)}</span>
+                </div>
+              </button>
+            ))}
+          </div>
         </section>
 
-        <aside className="panel rail">
+        <aside className="panel rail chat-panel">
           <div className="panel__block">
-            <p className="kicker">Ligands</p>
-            <div className="stack-list">
+            <div className="panel__row">
+              <p className="kicker">Pocket copilot</p>
+              <span className="badge badge--accent">{chatModelUsed}</span>
+            </div>
+            <div className="chat-context">
+              <span className="badge">Ligand {selectedLigand.name}</span>
+              <span className="badge">Residue {selectedResidue.label}</span>
+            </div>
+          </div>
+
+          <div className="panel__block">
+            <p className="kicker">Quick ask: ligands</p>
+            <div className="chat-chip-grid">
               {model.ligands.map((ligand) => (
                 <button
                   key={ligand.id}
-                  className={ligand.id === resolvedLigandId ? 'ligand-card ligand-card--active' : 'ligand-card'}
-                  onClick={() => setSelectedLigandId(ligand.id)}
+                  className="chat-chip"
+                  onClick={() => askAboutLigand(ligand.id)}
                   type="button"
                 >
-                  <div className="ligand-card__title">
-                    <strong>{ligand.name}</strong>
-                    <span>{ligand.tag}</span>
-                  </div>
-                  <div className="ligand-card__metrics">
-                    <span>Fit {formatPercent(ligand.pocketFit)}</span>
-                    <span>Coverage {formatPercent(ligand.mutationCoverage)}</span>
-                  </div>
+                  {ligand.name}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="panel__block">
-            <p className="kicker">Residues</p>
-            <div className="contact-grid">
-              {model.residues.map((residue) => {
-                return (
-                  <button
-                    key={residue.id}
-                    className={residue.id === resolvedResidueId ? 'contact-pill contact-pill--active' : 'contact-pill'}
-                    onClick={() => {
-                      setAutoplay(false);
-                      setSelectedResidueId(residue.id);
-                    }}
-                    type="button"
-                  >
-                    <strong>{residue.label}</strong>
-                    <span>{residue.role}</span>
-                  </button>
-                );
-              })}
+            <p className="kicker">Quick ask: residues</p>
+            <div className="chat-chip-grid">
+              {model.residues.map((residue) => (
+                <button
+                  key={residue.id}
+                  className="chat-chip"
+                  onClick={() => askAboutResidue(residue.id)}
+                  type="button"
+                >
+                  {residue.label}
+                </button>
+              ))}
             </div>
+          </div>
+
+          <div className="panel__block chat-log" ref={chatScrollRef}>
+            {chatMessages.map((message, index) => (
+              <article
+                className={message.role === 'assistant' ? 'chat-bubble chat-bubble--assistant' : 'chat-bubble chat-bubble--user'}
+                key={`${message.role}-${index}-${message.content.slice(0, 24)}`}
+              >
+                {message.content}
+              </article>
+            ))}
+            {chatBusy ? <article className="chat-bubble chat-bubble--assistant">Thinking…</article> : null}
+          </div>
+
+          <div className="panel__block">
+            <form
+              className="chat-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitChat(chatInput);
+              }}
+            >
+              <textarea
+                className="chat-input"
+                onChange={(event) => setChatInput(event.target.value)}
+                placeholder={`Ask about ${selectedLigand.name}, ${selectedResidue.label}, or compare ligands in ${model.targetProfile.name}.`}
+                rows={4}
+                value={chatInput}
+              />
+              <button className="chat-send" disabled={chatBusy || !chatInput.trim()} type="submit">
+                Send
+              </button>
+            </form>
+            {chatError ? <p className="chat-error">{chatError}</p> : null}
           </div>
         </aside>
       </main>

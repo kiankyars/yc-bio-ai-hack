@@ -255,6 +255,105 @@ button {
   gap: 0.7rem;
 }
 
+.chat-panel {
+  grid-template-rows: auto auto auto minmax(18rem, 1fr) auto;
+}
+
+.chat-context,
+.chat-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.chat-chip {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(154, 183, 214, 0.15);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.chat-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(86, 231, 195, 0.34);
+  background: rgba(86, 231, 195, 0.1);
+}
+
+.chat-log {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-height: 18rem;
+  max-height: 30rem;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.chat-bubble {
+  max-width: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.chat-bubble--assistant {
+  border: 1px solid rgba(86, 231, 195, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chat-bubble--user {
+  justify-self: end;
+  border: 1px solid rgba(255, 123, 93, 0.2);
+  background: rgba(255, 123, 93, 0.12);
+}
+
+.chat-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.chat-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 6rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(154, 183, 214, 0.15);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font: inherit;
+}
+
+.chat-input:focus {
+  outline: 1px solid rgba(86, 231, 195, 0.45);
+  border-color: rgba(86, 231, 195, 0.35);
+}
+
+.chat-send {
+  justify-self: end;
+  padding: 0.7rem 1rem;
+  border: 1px solid rgba(86, 231, 195, 0.24);
+  border-radius: 999px;
+  background: rgba(86, 231, 195, 0.14);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.chat-send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chat-error {
+  margin: 0.75rem 0 0;
+  color: #ffb5a0;
+  line-height: 1.45;
+}
+
 .stop-card,
 .ligand-card,
 .contact-pill {
