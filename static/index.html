@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EGFR Resistance Simulator</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">AI Drug Discovery</p>
+          <h1>EGFR Resistance Simulator</h1>
+          <p class="lede">
+            Watch osimertinib work, fail, and get patched in a branch-specific rescue loop.
+          </p>
+        </div>
+        <div class="hero-card" id="case-meta"></div>
+      </section>
+
+      <section class="controls">
+        <div class="branch-picker" id="branch-picker"></div>
+        <div class="actions">
+          <button id="start-run">Start Demo Run</button>
+          <button id="advance-run" class="secondary" disabled>Advance Turn</button>
+        </div>
+      </section>
+
+      <section class="status-grid">
+        <div class="panel">
+          <h2>Run State</h2>
+          <div id="run-summary" class="run-summary">No run yet.</div>
+        </div>
+        <div class="panel">
+          <h2>Scoreboard</h2>
+          <div id="scoreboard" class="scoreboard">Start a run to see the recommendation score.</div>
+        </div>
+      </section>
+
+      <section class="timeline panel">
+        <div class="panel-header">
+          <h2>Simulation Timeline</h2>
+          <p>Each turn returns the current tumor state, resistance event, and the best next move.</p>
+        </div>
+        <div id="timeline"></div>
+      </section>
+
+      <section class="artifact-view panel">
+        <div class="panel-header">
+          <h2>Evidence Panel</h2>
+          <p>Structural and pathway artifacts linked to the active turn.</p>
+        </div>
+        <div id="artifact-panel">Choose or advance a run to inspect evidence.</div>
+      </section>
+    </main>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

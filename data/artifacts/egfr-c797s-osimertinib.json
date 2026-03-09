@@ -1,0 +1,21 @@
+{
+  "note": "Submission accepted by Tamarind. Replace this cache with final result artifacts once the job completes.",
+  "submission": {
+    "artifact_id": "egfr-c797s-osimertinib",
+    "job_name": "egfr-c797s-osimertinib-demo",
+    "tool": "boltz",
+    "settings": {
+      "inputFormat": "sequence",
+      "sequence": "LVWKSPPEQNLQEILHGAVRFSNNPALSNVESIQWRDIVSSDFLSNMSMDFQNHLGSCQKCDPSCPNGSCVGPDNCIQCAHYIDGPHCVKTCPAGVMGENNTLVWKYADAGHVCHLCHPNCTYGCTGPGLRGCPTNGPKIPS",
+      "ligands": [
+        "COC1=CC2=C(C=C1)N(C3CCN(CC3)C)C4=NC(=NC(=C4)NC5=CN=C(C=C5)N)Cl"
+      ],
+      "addLigands": true,
+      "predictAffinity": true,
+      "numSamples": 1
+    }
+  },
+  "response": {
+    "message": "egfr-c797s-osimertinib-demo submitted to queue."
+  }
+}

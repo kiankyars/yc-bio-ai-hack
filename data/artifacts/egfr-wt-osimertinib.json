@@ -1,0 +1,21 @@
+{
+  "note": "Existing Tamarind job detected. Use the dashboard or /jobs endpoint to monitor completion.",
+  "submission": {
+    "artifact_id": "egfr-wt-osimertinib",
+    "job_name": "egfr-wt-osimertinib-demo",
+    "tool": "chai",
+    "settings": {
+      "inputFormat": "sequence",
+      "sequence": "LVWKSPPEQNLQEILHGAVRFSNNPALCNVESIQWRDIVSSDFLSNMSMDFQNHLGSCQKCDPSCPNGSCVGPDNCIQCAHYIDGPHCVKTCPAGVMGENNTLVWKYADAGHVCHLCHPNCTYGCTGPGLRGCPTNGPKIPS",
+      "ligands": [
+        "COC1=CC2=C(C=C1)N(C3CCN(CC3)C)C4=NC(=NC(=C4)NC5=CN=C(C=C5)N)Cl"
+      ],
+      "numSamples": 1,
+      "numTrunkSamples": 1,
+      "useMSA": false
+    }
+  },
+  "response": {
+    "message": "job already exists"
+  }
+}

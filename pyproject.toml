@@ -1,0 +1,18 @@
+[project]
+name = "egfr-resistance-simulator"
+version = "0.1.0"
+description = "Hackathon demo for simulating EGFR resistance and rescue strategies."
+requires-python = ">=3.14"
+dependencies = [
+  "fastapi==0.115.12",
+  "httpx==0.28.1",
+  "uvicorn==0.34.0",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==8.3.5",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
