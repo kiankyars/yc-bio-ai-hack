@@ -122,9 +122,6 @@ button {
 .hero-stat,
 .panel,
 .badge,
-.note-card,
-.quote-card,
-.review-card,
 .ligand-card,
 .stop-card,
 .contact-pill {
@@ -208,6 +205,26 @@ button {
   gap: 0.65rem;
 }
 
+.select-wrap {
+  position: relative;
+}
+
+.protein-select {
+  width: 100%;
+  padding: 0.92rem 1rem;
+  border: 1px solid rgba(154, 183, 214, 0.15);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  appearance: none;
+  cursor: pointer;
+}
+
+.protein-select:focus {
+  outline: 1px solid rgba(86, 231, 195, 0.45);
+  border-color: rgba(86, 231, 195, 0.35);
+}
+
 .chip,
 .toggle {
   border: 1px solid rgba(154, 183, 214, 0.15);
@@ -239,9 +256,6 @@ button {
 }
 
 .stop-card,
-.note-card,
-.quote-card,
-.review-card,
 .ligand-card,
 .contact-pill {
   border: 1px solid rgba(154, 183, 214, 0.14);
@@ -278,9 +292,7 @@ button {
 
 .stop-card span,
 .ligand-card span,
-.contact-pill span,
-.note-card p,
-.review-card p {
+.contact-pill span {
   color: var(--muted);
   line-height: 1.45;
 }
@@ -290,35 +302,6 @@ button {
 .contact-pill--active {
   border-color: rgba(255, 123, 93, 0.34);
   background: linear-gradient(135deg, rgba(255, 123, 93, 0.12), rgba(86, 231, 195, 0.08));
-}
-
-.note-card,
-.quote-card,
-.review-card {
-  padding: 1rem;
-}
-
-.note-card strong,
-.review-card strong {
-  display: block;
-  margin-bottom: 0.35rem;
-}
-
-.quote-card {
-  position: relative;
-  padding-left: 1.15rem;
-  line-height: 1.55;
-}
-
-.quote-card::before {
-  content: '';
-  position: absolute;
-  left: 0.35rem;
-  top: 0.8rem;
-  bottom: 0.8rem;
-  width: 2px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, var(--teal), transparent);
 }
 
 .viewport {
@@ -405,64 +388,6 @@ button {
   margin-top: 0.8rem;
   color: var(--muted);
   font-size: 0.86rem;
-}
-
-.metric-bar {
-  margin-bottom: 0.8rem;
-}
-
-.metric-bar__header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.4rem;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.metric-bar__track {
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  height: 0.56rem;
-}
-
-.metric-bar__fill {
-  height: 100%;
-  border-radius: inherit;
-}
-
-.metric-bar__fill--teal {
-  background: linear-gradient(90deg, #2ea5a5, var(--teal));
-}
-
-.metric-bar__fill--gold {
-  background: linear-gradient(90deg, #b98f3f, var(--gold));
-}
-
-.metric-bar__fill--coral {
-  background: linear-gradient(90deg, #d24a31, var(--coral));
-}
-
-.metric-bar__fill--violet {
-  background: linear-gradient(90deg, #6b59cc, var(--violet));
-}
-
-.review-card__header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: baseline;
-  margin-bottom: 0.5rem;
-}
-
-.review-card__header span {
-  color: var(--gold);
-  font-size: 0.82rem;
-}
-
-.review-card__risk {
-  color: #ffd8cf;
 }
 
 .contact-grid {

@@ -1,63 +1,48 @@
 import { startTransition, useDeferredValue, useEffect, useRef, useState } from 'react';
 
 import {
-  buildCopilotBrief,
-  cameraStops,
-  evidenceCards,
   formatPercent,
+  getProteinModel,
   getLigandById,
   getResidueById,
-  ligands,
-  residues,
-  targetProfile,
+  proteinCatalog,
   type OverlayMode,
 } from './data/pocketData';
 import { PocketVerseScene } from './lib/pocketverse-scene';
-
-function MetricBar({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: 'teal' | 'gold' | 'coral' | 'violet';
-}) {
-  return (
-    <div className="metric-bar">
-      <div className="metric-bar__header">
-        <span>{label}</span>
-        <strong>{formatPercent(value)}</strong>
-      </div>
-      <div className="metric-bar__track">
-        <div className={`metric-bar__fill metric-bar__fill--${tone}`} style={{ width: formatPercent(value) }} />
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sceneRef = useRef<PocketVerseScene | null>(null);
 
+  const [selectedProteinId, setSelectedProteinId] = useState('egfr');
   const [sceneReady, setSceneReady] = useState(false);
-  const [selectedResidueId, setSelectedResidueId] = useState('T790M');
-  const [selectedLigandId, setSelectedLigandId] = useState('osimertinib');
   const [overlayMode, setOverlayMode] = useState<OverlayMode>('resistance');
-  const [selectedStopId, setSelectedStopId] = useState('overview');
   const [autoplay, setAutoplay] = useState(true);
+  const model = getProteinModel(selectedProteinId);
+  const [selectedResidueId, setSelectedResidueId] = useState(model.defaultResidueId);
+  const [selectedLigandId, setSelectedLigandId] = useState(model.defaultLigandId);
+  const [selectedStopId, setSelectedStopId] = useState(model.defaultStopId);
 
-  const deferredResidueId = useDeferredValue(selectedResidueId);
-  const selectedResidue = getResidueById(deferredResidueId);
-  const selectedLigand = getLigandById(selectedLigandId);
-  const copilotBrief = buildCopilotBrief(selectedResidue, selectedLigand);
+  const resolvedResidueId = model.residues.some((residue) => residue.id === selectedResidueId)
+    ? selectedResidueId
+    : model.defaultResidueId;
+  const resolvedLigandId = model.ligands.some((ligand) => ligand.id === selectedLigandId)
+    ? selectedLigandId
+    : model.defaultLigandId;
+  const resolvedStopId = model.cameraStops.some((stop) => stop.id === selectedStopId)
+    ? selectedStopId
+    : model.defaultStopId;
+
+  const deferredResidueId = useDeferredValue(resolvedResidueId);
+  const selectedResidue = getResidueById(model, deferredResidueId);
+  const selectedLigand = getLigandById(model, resolvedLigandId);
 
   useEffect(() => {
     if (!canvasRef.current) {
       return undefined;
     }
 
-    const scene = new PocketVerseScene(canvasRef.current, {
+    const scene = new PocketVerseScene(canvasRef.current, model, {
       onResidueSelect: (id) => {
         startTransition(() => {
           setAutoplay(false);
@@ -69,13 +54,21 @@ export default function App() {
           setSelectedStopId(id);
         });
       },
+      onCameraInteract: () => {
+        startTransition(() => {
+          setAutoplay(false);
+        });
+      },
     });
 
     sceneRef.current = scene;
-    scene.setSelectedResidue(selectedResidueId);
-    scene.setSelectedLigand(selectedLigandId);
+    scene.setSelectedResidue(resolvedResidueId);
+    scene.setSelectedLigand(resolvedLigandId);
     scene.setOverlay(overlayMode);
     scene.setAutoplay(autoplay);
+    if (!autoplay) {
+      scene.focusStop(resolvedStopId);
+    }
     setSceneReady(true);
 
     return () => {
@@ -83,15 +76,23 @@ export default function App() {
       scene.destroy();
       sceneRef.current = null;
     };
-  }, []);
+  }, [model, overlayMode, autoplay, resolvedResidueId, resolvedLigandId, resolvedStopId]);
 
   useEffect(() => {
-    sceneRef.current?.setSelectedResidue(selectedResidueId);
-  }, [selectedResidueId]);
+    setSceneReady(false);
+    setAutoplay(true);
+    setSelectedResidueId(model.defaultResidueId);
+    setSelectedLigandId(model.defaultLigandId);
+    setSelectedStopId(model.defaultStopId);
+  }, [model]);
 
   useEffect(() => {
-    sceneRef.current?.setSelectedLigand(selectedLigandId);
-  }, [selectedLigandId]);
+    sceneRef.current?.setSelectedResidue(resolvedResidueId);
+  }, [resolvedResidueId]);
+
+  useEffect(() => {
+    sceneRef.current?.setSelectedLigand(resolvedLigandId);
+  }, [resolvedLigandId]);
 
   useEffect(() => {
     sceneRef.current?.setOverlay(overlayMode);
@@ -100,9 +101,9 @@ export default function App() {
   useEffect(() => {
     sceneRef.current?.setAutoplay(autoplay);
     if (!autoplay) {
-      sceneRef.current?.focusStop(selectedStopId);
+      sceneRef.current?.focusStop(resolvedStopId);
     }
-  }, [autoplay, selectedStopId]);
+  }, [autoplay, resolvedStopId]);
 
   return (
     <div className="app-shell">
@@ -111,25 +112,23 @@ export default function App() {
 
       <header className="hero">
         <div>
-          <p className="eyebrow">
-            {targetProfile.track} <span>with a live {targetProfile.companionTrack} story</span>
-          </p>
+          <p className="eyebrow">{model.targetProfile.track}</p>
           <h1>PocketVerse</h1>
-          <p className="hero__lede">{targetProfile.demoClaim}</p>
+          <p className="hero__lede">{model.targetProfile.demoClaim}</p>
         </div>
 
         <div className="hero__stats">
           <article className="hero-stat">
             <span>Pocket signal</span>
-            <strong>{targetProfile.pocketSignal}</strong>
+            <strong>{model.targetProfile.pocketSignal}</strong>
           </article>
           <article className="hero-stat">
             <span>Contact density</span>
-            <strong>{targetProfile.contactDensity}</strong>
+            <strong>{model.targetProfile.contactDensity}</strong>
           </article>
           <article className="hero-stat">
             <span>Resistance risk</span>
-            <strong>{targetProfile.resistanceRisk}</strong>
+            <strong>{model.targetProfile.resistanceRisk}</strong>
           </article>
         </div>
       </header>
@@ -137,9 +136,20 @@ export default function App() {
       <main className="layout">
         <section className="panel rail">
           <div className="panel__block">
-            <p className="kicker">Demo target</p>
-            <h2>{targetProfile.name}</h2>
-            <p className="muted">{targetProfile.subtitle}</p>
+            <p className="kicker">Cancer protein</p>
+            <div className="select-wrap">
+              <select
+                className="protein-select"
+                onChange={(event) => setSelectedProteinId(event.target.value)}
+                value={selectedProteinId}
+              >
+                {proteinCatalog.map((protein) => (
+                  <option key={protein.id} value={protein.id}>
+                    {protein.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="panel__block">
@@ -160,21 +170,21 @@ export default function App() {
 
           <div className="panel__block">
             <div className="panel__row">
-              <p className="kicker">Camera beats</p>
+              <p className="kicker">Pocket views</p>
               <button
                 className={autoplay ? 'toggle toggle--active' : 'toggle'}
                 onClick={() => setAutoplay((current) => !current)}
                 type="button"
               >
-                {autoplay ? 'Auto tour on' : 'Auto tour off'}
+                {autoplay ? 'Guided tour on' : 'Guided tour off'}
               </button>
             </div>
 
             <div className="stack-list">
-              {cameraStops.map((stop) => (
+              {model.cameraStops.map((stop) => (
                 <button
                   key={stop.id}
-                  className={stop.id === selectedStopId ? 'stop-card stop-card--active' : 'stop-card'}
+                  className={stop.id === resolvedStopId ? 'stop-card stop-card--active' : 'stop-card'}
                   onClick={() => {
                     setAutoplay(false);
                     setSelectedStopId(stop.id);
@@ -187,28 +197,16 @@ export default function App() {
               ))}
             </div>
           </div>
-
-          <div className="panel__block">
-            <p className="kicker">Why this demo lands</p>
-            <div className="stack-list">
-              {evidenceCards.map((card) => (
-                <article key={card.title} className="note-card">
-                  <strong>{card.title}</strong>
-                  <p>{card.body}</p>
-                </article>
-              ))}
-            </div>
-          </div>
         </section>
 
         <section className="viewport panel">
           <div className="viewport__header">
             <div>
-              <p className="kicker">Live scene</p>
+              <p className="kicker">Pocket scene</p>
               <h2>3D resistance pocket</h2>
             </div>
             <div className="viewport__badges">
-              <span className="badge">Target {targetProfile.targetId}</span>
+              <span className="badge">Target {model.targetProfile.targetId}</span>
               <span className="badge badge--accent">{selectedLigand.stage}</span>
             </div>
           </div>
@@ -220,77 +218,40 @@ export default function App() {
               <span>{selectedResidue.label} selected</span>
             </div>
           </div>
-
-          <div className="viewport__footer">
-            {ligands.map((ligand) => (
-              <button
-                key={ligand.id}
-                className={ligand.id === selectedLigandId ? 'ligand-card ligand-card--active' : 'ligand-card'}
-                onClick={() => setSelectedLigandId(ligand.id)}
-                type="button"
-              >
-                <div className="ligand-card__title">
-                  <strong>{ligand.name}</strong>
-                  <span>{ligand.tag}</span>
-                </div>
-                <div className="ligand-card__metrics">
-                  <span>Fit {formatPercent(ligand.pocketFit)}</span>
-                  <span>Coverage {formatPercent(ligand.mutationCoverage)}</span>
-                </div>
-              </button>
-            ))}
-          </div>
         </section>
 
         <aside className="panel rail">
           <div className="panel__block">
-            <p className="kicker">Selected residue</p>
-            <h2>{selectedResidue.label}</h2>
-            <p className="muted">
-              {selectedResidue.aminoAcid} • {selectedResidue.role}
-            </p>
-            <p>{selectedResidue.note}</p>
-          </div>
-
-          <div className="panel__block">
-            <MetricBar label="Mutation pressure" value={selectedResidue.mutationPressure} tone="coral" />
-            <MetricBar label="Conservation" value={selectedResidue.conservation} tone="gold" />
-            <MetricBar label="Pocket fit" value={selectedLigand.pocketFit} tone="teal" />
-            <MetricBar label="Mutation coverage" value={selectedLigand.mutationCoverage} tone="violet" />
-          </div>
-
-          <div className="panel__block">
-            <p className="kicker">Copilot explanation</p>
+            <p className="kicker">Ligands</p>
             <div className="stack-list">
-              {copilotBrief.map((line) => (
-                <article key={line} className="quote-card">
-                  {line}
-                </article>
+              {model.ligands.map((ligand) => (
+                <button
+                  key={ligand.id}
+                  className={ligand.id === resolvedLigandId ? 'ligand-card ligand-card--active' : 'ligand-card'}
+                  onClick={() => setSelectedLigandId(ligand.id)}
+                  type="button"
+                >
+                  <div className="ligand-card__title">
+                    <strong>{ligand.name}</strong>
+                    <span>{ligand.tag}</span>
+                  </div>
+                  <div className="ligand-card__metrics">
+                    <span>Fit {formatPercent(ligand.pocketFit)}</span>
+                    <span>Coverage {formatPercent(ligand.mutationCoverage)}</span>
+                  </div>
+                </button>
               ))}
             </div>
           </div>
 
           <div className="panel__block">
-            <p className="kicker">Ligand review</p>
-            <article className="review-card">
-              <div className="review-card__header">
-                <strong>{selectedLigand.name}</strong>
-                <span>{selectedLigand.confidence}</span>
-              </div>
-              <p>{selectedLigand.storyline}</p>
-              <p className="review-card__risk">{selectedLigand.risk}</p>
-            </article>
-          </div>
-
-          <div className="panel__block">
-            <p className="kicker">Current contacts</p>
+            <p className="kicker">Residues</p>
             <div className="contact-grid">
-              {selectedLigand.contactResidues.map((residueId) => {
-                const residue = getResidueById(residueId);
+              {model.residues.map((residue) => {
                 return (
                   <button
                     key={residue.id}
-                    className={residue.id === selectedResidueId ? 'contact-pill contact-pill--active' : 'contact-pill'}
+                    className={residue.id === resolvedResidueId ? 'contact-pill contact-pill--active' : 'contact-pill'}
                     onClick={() => {
                       setAutoplay(false);
                       setSelectedResidueId(residue.id);
@@ -308,10 +269,10 @@ export default function App() {
       </main>
 
       <footer className="footer-note">
-        <span>1 target</span>
-        <span>3 ligands</span>
-        <span>7 residues</span>
-        <span>3 camera beats</span>
+        <span>{proteinCatalog.filter((protein) => protein.implemented).length} live targets</span>
+        <span>{proteinCatalog.length} listed proteins</span>
+        <span>{model.ligands.length} ligands</span>
+        <span>{model.residues.length} residues</span>
       </footer>
     </div>
   );

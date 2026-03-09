@@ -1,13 +1,11 @@
 import * as pc from 'playcanvas';
 
 import {
-  cameraStops,
   getLigandById,
   getResidueById,
-  ligands,
-  residues,
   type Ligand,
   type OverlayMode,
+  type ProteinModel,
   type Residue,
   type Vec3Tuple,
 } from '../data/pocketData';
@@ -15,6 +13,7 @@ import {
 type SceneCallbacks = {
   onResidueSelect: (id: string) => void;
   onStopChange?: (id: string) => void;
+  onCameraInteract?: () => void;
 };
 
 type ResidueVisual = {
@@ -99,6 +98,8 @@ export class PocketVerseScene {
 
   private readonly callbacks: SceneCallbacks;
 
+  private readonly model: ProteinModel;
+
   private readonly app: pc.Application;
 
   private readonly camera: pc.Entity;
@@ -113,21 +114,21 @@ export class PocketVerseScene {
 
   private contactBeams: BeamVisual[] = [];
 
-  private selectedResidueId = 'T790M';
+  private selectedResidueId: string;
 
-  private selectedLigandId = 'osimertinib';
+  private selectedLigandId: string;
 
   private overlayMode: OverlayMode = 'resistance';
 
-  private selectedStopId = 'overview';
+  private selectedStopId: string;
 
-  private currentCameraPosition = tupleToVec3(cameraStops[0].position);
+  private currentCameraPosition: pc.Vec3;
 
-  private targetCameraPosition = tupleToVec3(cameraStops[0].position);
+  private targetCameraPosition: pc.Vec3;
 
-  private currentCameraTarget = tupleToVec3(cameraStops[0].target);
+  private currentCameraTarget: pc.Vec3;
 
-  private targetCameraTarget = tupleToVec3(cameraStops[0].target);
+  private targetCameraTarget: pc.Vec3;
 
   private autoplay = true;
 
@@ -135,32 +136,98 @@ export class PocketVerseScene {
 
   private elapsed = 0;
 
+  private dragging = false;
+
+  private dragPointerId: number | null = null;
+
+  private dragMoved = false;
+
+  private lastPointerX = 0;
+
+  private lastPointerY = 0;
+
   private readonly handleResize = () => {
     const rect = this.canvas.getBoundingClientRect();
     this.app.resizeCanvas(rect.width, rect.height);
   };
 
   private readonly handlePointerMove = (event: PointerEvent) => {
+    if (this.dragging && this.dragPointerId === event.pointerId) {
+      const dx = event.clientX - this.lastPointerX;
+      const dy = event.clientY - this.lastPointerY;
+      this.lastPointerX = event.clientX;
+      this.lastPointerY = event.clientY;
+
+      if (Math.abs(dx) > 0 || Math.abs(dy) > 0) {
+        this.dragMoved = this.dragMoved || Math.abs(dx) + Math.abs(dy) > 2;
+        this.autoplay = false;
+        this.autoplayTimer = 0;
+        this.callbacks.onCameraInteract?.();
+        this.orbitCamera(dx, dy);
+      }
+      return;
+    }
+
     const residueId = this.pickResidue(event);
     this.canvas.style.cursor = residueId ? 'pointer' : 'default';
   };
 
   private readonly handlePointerDown = (event: PointerEvent) => {
-    const residueId = this.pickResidue(event);
-    if (!residueId) {
+    this.dragging = true;
+    this.dragPointerId = event.pointerId;
+    this.dragMoved = false;
+    this.lastPointerX = event.clientX;
+    this.lastPointerY = event.clientY;
+    this.canvas.setPointerCapture(event.pointerId);
+  };
+
+  private readonly handlePointerUp = (event: PointerEvent) => {
+    if (this.dragPointerId !== event.pointerId) {
       return;
     }
 
-    this.callbacks.onResidueSelect(residueId);
+    this.dragging = false;
+    this.dragPointerId = null;
+    this.canvas.releasePointerCapture(event.pointerId);
+
+    if (this.dragMoved) {
+      return;
+    }
+
+    const residueId = this.pickResidue(event);
+    if (residueId) {
+      this.callbacks.onResidueSelect(residueId);
+    }
+  };
+
+  private readonly handlePointerCancel = (event: PointerEvent) => {
+    if (this.dragPointerId !== event.pointerId) {
+      return;
+    }
+
+    this.dragging = false;
+    this.dragPointerId = null;
+    this.dragMoved = false;
   };
 
   private readonly handleUpdate = (dt: number) => {
     this.update(dt);
   };
 
-  constructor(canvas: HTMLCanvasElement, callbacks: SceneCallbacks) {
+  constructor(canvas: HTMLCanvasElement, model: ProteinModel, callbacks: SceneCallbacks) {
     this.canvas = canvas;
+    this.model = model;
     this.callbacks = callbacks;
+    this.selectedResidueId = model.defaultResidueId;
+    this.selectedLigandId = model.defaultLigandId;
+    this.selectedStopId = model.defaultStopId;
+
+    const initialStop =
+      model.cameraStops.find((entry) => entry.id === model.defaultStopId) ?? model.cameraStops[0];
+    this.currentCameraPosition = tupleToVec3(initialStop.position);
+    this.targetCameraPosition = tupleToVec3(initialStop.position);
+    this.currentCameraTarget = tupleToVec3(initialStop.target);
+    this.targetCameraTarget = tupleToVec3(initialStop.target);
 
     this.app = new pc.Application(canvas, {
       graphicsDeviceOptions: {
@@ -180,7 +247,7 @@ export class PocketVerseScene {
     this.createPocketShell();
     this.createResidues();
     this.createParticles();
-    this.rebuildLigand(getLigandById(this.selectedLigandId));
+    this.rebuildLigand(getLigandById(this.model, this.selectedLigandId));
     this.applyResidueColors();
 
     this.app.on('update', this.handleUpdate);
@@ -189,6 +256,8 @@ export class PocketVerseScene {
     window.addEventListener('resize', this.handleResize);
     this.canvas.addEventListener('pointermove', this.handlePointerMove);
     this.canvas.addEventListener('pointerdown', this.handlePointerDown);
+    this.canvas.addEventListener('pointerup', this.handlePointerUp);
+    this.canvas.addEventListener('pointercancel', this.handlePointerCancel);
     this.handleResize();
   }
 
@@ -207,7 +276,7 @@ export class PocketVerseScene {
     }
 
     this.selectedLigandId = id;
-    this.rebuildLigand(getLigandById(id));
+    this.rebuildLigand(getLigandById(this.model, id));
     this.applyResidueColors();
   }
 
@@ -222,7 +291,7 @@ export class PocketVerseScene {
   }
 
   focusStop(id: string): void {
-    const stop = cameraStops.find((entry) => entry.id === id);
+    const stop = this.model.cameraStops.find((entry) => entry.id === id);
     if (!stop) {
       return;
     }
@@ -237,6 +306,8 @@ export class PocketVerseScene {
     window.removeEventListener('resize', this.handleResize);
     this.canvas.removeEventListener('pointermove', this.handlePointerMove);
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
+    this.canvas.removeEventListener('pointerup', this.handlePointerUp);
+    this.canvas.removeEventListener('pointercancel', this.handlePointerCancel);
     this.app.off('update', this.handleUpdate);
     this.app.destroy();
   }
@@ -340,7 +411,7 @@ export class PocketVerseScene {
   }
 
   private createResidues(): void {
-    residues.forEach((residue, index) => {
+    this.model.residues.forEach((residue, index) => {
       const entity = new pc.Entity(`residue-${residue.id}`);
       entity.addComponent('model', { type: 'sphere' });
       entity.setPosition(tupleToVec3(residue.position));
@@ -466,8 +537,10 @@ export class PocketVerseScene {
     if (this.autoplay) {
       this.autoplayTimer += dt;
       if (this.autoplayTimer > 6.5) {
-        const nextIndex = (cameraStops.findIndex((entry) => entry.id === this.selectedStopId) + 1) % cameraStops.length;
-        this.focusStop(cameraStops[nextIndex].id);
+        const nextIndex =
+          (this.model.cameraStops.findIndex((entry) => entry.id === this.selectedStopId) + 1) %
+          this.model.cameraStops.length;
+        this.focusStop(this.model.cameraStops[nextIndex].id);
         this.autoplayTimer = 0;
       }
     }
@@ -522,7 +595,7 @@ export class PocketVerseScene {
   }
 
   private applyResidueColors(): void {
-    const ligand = getLigandById(this.selectedLigandId);
+    const ligand = getLigandById(this.model, this.selectedLigandId);
 
     this.residueVisuals.forEach(({ residue, material, auraMaterial }, id) => {
       const base = this.colorForResidue(residue);
@@ -568,11 +641,11 @@ export class PocketVerseScene {
   }
 
   private updateContactBeams(): void {
-    const ligand = getLigandById(this.selectedLigandId);
+    const ligand = getLigandById(this.model, this.selectedLigandId);
     const ligandCenter = tupleToVec3(ligand.center);
 
     this.contactBeams.forEach((beam, index) => {
-      const residue = getResidueById(beam.residueId);
+      const residue = getResidueById(this.model, beam.residueId);
       const start = ligandCenter.clone();
       const end = tupleToVec3(residue.position);
       const midpoint = start.clone().add(end).mulScalar(0.5);
@@ -585,6 +658,25 @@ export class PocketVerseScene {
       beam.material.emissiveIntensity = beam.residueId === this.selectedResidueId ? 1.4 : 0.9;
       beam.material.update();
     });
+  }
+
+  private orbitCamera(deltaX: number, deltaY: number): void {
+    const offset = this.targetCameraPosition.clone().sub(this.targetCameraTarget);
+    const radius = Math.max(offset.length(), 0.1);
+    const yaw = Math.atan2(offset.x, offset.z) - deltaX * 0.012;
+    const polar = clamp(Math.acos(clamp(offset.y / radius, -0.999, 0.999)) + deltaY * 0.012, 0.35, Math.PI - 0.35);
+
+    const sinPolar = Math.sin(polar);
+    const next = new pc.Vec3(
+      radius * sinPolar * Math.sin(yaw),
+      radius * Math.cos(polar),
+      radius * sinPolar * Math.cos(yaw),
+    ).add(this.targetCameraTarget);
+
+    this.targetCameraPosition = next;
+    this.currentCameraPosition = next.clone();
+    this.camera.setPosition(this.currentCameraPosition);
+    this.camera.lookAt(this.currentCameraTarget);
   }
 
   private pickResidue(event: PointerEvent): string | null {
@@ -621,8 +713,4 @@ export class PocketVerseScene {
       current.z + (target.z - current.z) * t,
     );
   }
-}
-
-export function getDefaultLigand(): Ligand {
-  return ligands[1];
 }
