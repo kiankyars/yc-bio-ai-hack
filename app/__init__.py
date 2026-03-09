@@ -1,1 +1,0 @@
-"""EGFR resistance simulator package."""

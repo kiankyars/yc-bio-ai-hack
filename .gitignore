@@ -2,3 +2,6 @@
 __pycache__/
 .pytest_cache/
 data/demo.sqlite3
+node_modules/
+dist/
+*.tsbuildinfo
