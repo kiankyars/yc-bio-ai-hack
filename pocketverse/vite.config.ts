@@ -126,7 +126,7 @@ function geminiProxy(mode: string) {
         return;
       } catch (error) {
         if (requestedModel === 'gemini-flash-3-preview') {
-          const fallback = await callGemini(apiKey, 'gemini-2.5-flash', body);
+          const fallback = await callGemini(apiKey, 'gemini-3.5-flash', body);
           json(res, 200, fallback);
           return;
         }
